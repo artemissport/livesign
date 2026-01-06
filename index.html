@@ -147,6 +147,59 @@
             box-shadow: 0 0 0 3px var(--accent-glow);
         }
 
+        /* Checkbox */
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            cursor: pointer;
+            padding: 18px;
+            background: var(--bg-input);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            transition: all 0.2s;
+            font-size: 16px;
+        }
+
+        .checkbox-label:hover {
+            border-color: var(--accent);
+            background: rgba(0, 212, 255, 0.05);
+        }
+
+        .checkbox-label input {
+            display: none;
+        }
+
+        .checkmark {
+            width: 36px;
+            height: 36px;
+            border: 3px solid var(--accent);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            flex-shrink: 0;
+            background: transparent;
+        }
+
+        .checkbox-label input:checked + .checkmark {
+            background: var(--accent);
+            border-color: var(--accent);
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .checkbox-label input:checked + .checkmark::after {
+            content: '✓';
+            color: var(--primary);
+            font-weight: bold;
+            font-size: 22px;
+        }
+
+        .checkbox-label input:checked ~ span:last-child {
+            color: var(--accent);
+        }
+
         /* Button */
         .btn {
             width: 100%;
@@ -554,7 +607,7 @@
                     </div>
                     <div class="form-group">
                         <label class="checkbox-label">
-                             <input type="checkbox" id="inputAttendance" required>
+                            <input type="checkbox" id="inputAttendance" required>
                             <span class="checkmark"></span>
                             <span>我確認出席此課程</span>
                         </label>
@@ -603,9 +656,12 @@
 
     <script>
     // ============================================
-    // ⚠️ 請將此處改為您的 Google Apps Script Web App URL
+    // ⚠️ 請修改以下設定
     // ============================================
     const API_URL = 'https://script.google.com/macros/s/AKfycbyo7qpPWdk4sq6vRAk_va6VumEaZOls-EY7iusyckD7WCGnKakmungUy81SUiGsuWMFpg/exec';
+    
+    // 教練端密碼（請改成你自己的密碼）
+    const ADMIN_PASSWORD = '007058';
 
     // ============================================
     // 狀態
@@ -619,14 +675,36 @@
     document.addEventListener('DOMContentLoaded', () => {
         const params = new URLSearchParams(window.location.search);
         const sessionId = params.get('s');
-        const isAdmin = params.get('admin') === 'true';
 
         if (sessionId) {
             initStudentMode(sessionId);
         } else {
-            initAdminMode();
+            // 教練端需要密碼
+            checkAdminPassword();
         }
     });
+
+    // ============================================
+    // 密碼驗證
+    // ============================================
+    function checkAdminPassword() {
+        const savedAuth = sessionStorage.getItem('admin_auth');
+        
+        if (savedAuth === 'true') {
+            initAdminMode();
+            return;
+        }
+
+        const password = prompt('請輸入教練密碼：');
+        
+        if (password === ADMIN_PASSWORD) {
+            sessionStorage.setItem('admin_auth', 'true');
+            initAdminMode();
+        } else if (password !== null) {
+            alert('密碼錯誤！');
+            checkAdminPassword();
+        }
+    }
 
     // ============================================
     // 管理員模式
@@ -883,10 +961,15 @@
     // ============================================
     async function submitCheckin(sessionId) {
         const studentId = document.getElementById('inputStudentId').value.trim();
-        const attendance = document.getElementById('inputAttendance').value;
+        const isChecked = document.getElementById('inputAttendance').checked;
 
         if (!studentId) {
             showToast('請輸入學號', 'error');
+            return;
+        }
+
+        if (!isChecked) {
+            showToast('請勾選確認出席', 'error');
             return;
         }
 
@@ -900,7 +983,7 @@
                     action: 'checkin',
                     sessionId: sessionId,
                     studentId: studentId,
-                    attendance: attendance
+                    attendance: '簽到'
                 })
             });
 
@@ -909,7 +992,7 @@
             if (data.success) {
                 showPage('pageSuccess');
                 document.getElementById('successMsg').textContent = 
-                    `學號 ${studentId}（${attendance}）`;
+                    `學號 ${studentId} 已完成簽到`;
             } else {
                 if (data.expired) {
                     showPage('pageError');
