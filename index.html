@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>課程簽到系統</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #0A2540;
+            --accent: #00D4FF;
+            --accent-glow: rgba(0, 212, 255, 0.3);
+            --success: #00C853;
+            --danger: #FF3366;
+            --bg-dark: #0D1117;
+            --bg-card: #161B22;
+            --bg-input: #21262D;
+            --text-primary: #F0F6FC;
+            --text-secondary: #8B949E;
+            --border: #30363D;
+            --gradient: linear-gradient(135deg, #00D4FF 0%, #00B4D8 100%);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        .bg-pattern {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: -1;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(0, 212, 255, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(102, 126, 234, 0.08) 0%, transparent 50%);
+        }
+
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 16px;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            padding: 24px 0 16px;
+        }
+
+        .logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo-icon {
+            width: 44px; height: 44px;
+            background: var(--gradient);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            box-shadow: 0 6px 24px var(--accent-glow);
+        }
+
+        .logo-text {
+            font-size: 24px;
+            font-weight: 700;
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Card */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 14px;
+            position: relative;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: var(--gradient);
+            border-radius: 16px 16px 0 0;
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 500;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-icon {
+            width: 28px; height: 28px;
+            background: var(--bg-input);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        /* Form */
+        .form-group { margin-bottom: 14px; }
+
+        .form-label {
+            display: block;
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 14px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-size: 15px;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        /* Button */
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 500;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--gradient);
+            color: var(--primary);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px var(--accent-glow);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: var(--bg-input);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-row .btn { flex: 1; }
+
+        /* Course Info */
+        .course-box {
+            background: var(--bg-input);
+            border-radius: 10px;
+            padding: 14px;
+            margin-bottom: 14px;
+        }
+
+        .course-name {
+            font-size: 17px;
+            font-weight: 600;
+            color: var(--accent);
+            margin-bottom: 6px;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            background: rgba(0, 200, 83, 0.15);
+            color: var(--success);
+        }
+
+        .status-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* Link & Timer */
+        .link-box {
+            background: var(--bg-input);
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--accent);
+            word-break: break-all;
+            margin-bottom: 10px;
+        }
+
+        .timer-box {
+            text-align: center;
+            padding: 14px;
+            background: var(--bg-input);
+            border-radius: 10px;
+            margin-bottom: 14px;
+        }
+
+        .timer-label {
+            font-size: 10px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+
+        .timer-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 28px;
+            font-weight: 500;
+            color: var(--accent);
+        }
+
+        .timer-value.expired { color: var(--danger); }
+
+        /* QR Code */
+        .qr-box {
+            text-align: center;
+            padding: 16px;
+            background: white;
+            border-radius: 10px;
+            margin-bottom: 14px;
+        }
+
+        /* Success */
+        .success-box {
+            text-align: center;
+            padding: 30px 16px;
+        }
+
+        .success-icon {
+            width: 64px; height: 64px;
+            background: var(--success);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            font-size: 32px;
+            animation: pop 0.4s ease;
+        }
+
+        @keyframes pop {
+            0% { transform: scale(0); }
+            70% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .success-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .success-msg { color: var(--text-secondary); }
+
+        /* Error */
+        .error-box {
+            text-align: center;
+            padding: 40px 16px;
+        }
+
+        .error-icon { font-size: 48px; margin-bottom: 16px; }
+
+        .error-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--danger);
+            margin-bottom: 6px;
+        }
+
+        .error-msg { color: var(--text-secondary); }
+
+        /* Session List */
+        .session-item {
+            background: var(--bg-input);
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+
+        .session-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .session-name { font-weight: 500; font-size: 14px; }
+        .session-time {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--accent);
+        }
+
+        .session-btns {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-sm {
+            padding: 8px 12px;
+            font-size: 12px;
+            border-radius: 8px;
+            flex: 1;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            padding: 12px 20px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 1000;
+            transition: transform 0.3s;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+        }
+
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { border-color: var(--success); }
+        .toast.error { border-color: var(--danger); }
+
+        /* Loading */
+        .loading {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(13, 17, 23, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s;
+        }
+
+        .loading.show { opacity: 1; visibility: visible; }
+
+        .spinner {
+            width: 32px; height: 32px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Page */
+        .page { display: none; }
+        .page.active { display: block; animation: fadeIn 0.3s; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            background: var(--bg-card);
+            border-radius: 10px;
+            padding: 4px;
+            margin-bottom: 14px;
+            border: 1px solid var(--border);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .tab:hover { background: var(--bg-input); }
+        .tab.active { background: var(--accent); color: var(--primary); }
+
+        .empty-msg {
+            text-align: center;
+            color: var(--text-secondary);
+            padding: 24px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-pattern"></div>
+    
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">
+                <div class="logo-icon">📋</div>
+                <span class="logo-text">課程簽到</span>
+            </div>
+        </div>
+
+        <!-- Admin Tabs -->
+        <div class="tabs" id="tabs" style="display:none;">
+            <div class="tab active" data-tab="create">建立簽到</div>
+            <div class="tab" data-tab="manage">管理連結</div>
+        </div>
+
+        <!-- Page: Create (Admin) -->
+        <div class="page" id="pageCreate">
+            <div class="card">
+                <div class="card-title">
+                    <div class="card-icon">📝</div>
+                    建立簽到連結
+                </div>
+                <form id="formCreate">
+                    <div class="form-group">
+                        <label class="form-label">課程名稱</label>
+                        <input type="text" class="form-input" id="inputCourse" placeholder="例：2024/01/15 瑜珈班" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">有效時間（分鐘）</label>
+                        <input type="number" class="form-input" id="inputDuration" value="120" min="10" max="480">
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        🔗 產生連結
+                    </button>
+                </form>
+            </div>
+
+            <!-- Generated Link -->
+            <div class="card" id="cardLink" style="display:none;">
+                <div class="card-title">
+                    <div class="card-icon">✨</div>
+                    連結已產生
+                </div>
+                <div class="course-box">
+                    <div class="course-name" id="showCourse"></div>
+                    <span class="status-badge">
+                        <span class="status-dot"></span>
+                        開放中
+                    </span>
+                </div>
+                <div class="timer-box">
+                    <div class="timer-label">剩餘時間</div>
+                    <div class="timer-value" id="countdown">02:00:00</div>
+                </div>
+                <div class="link-box" id="showLink"></div>
+                <div class="qr-box" id="qrCode"></div>
+                <div class="btn-row">
+                    <button class="btn btn-secondary" onclick="copyLink()">📋 複製</button>
+                    <button class="btn btn-danger" onclick="closeCurrentSession()">🔒 關閉</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Page: Manage (Admin) -->
+        <div class="page" id="pageManage">
+            <div class="card">
+                <div class="card-title">
+                    <div class="card-icon">📊</div>
+                    進行中的連結
+                </div>
+                <div id="sessionList">
+                    <p class="empty-msg">目前沒有進行中的連結</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Page: Checkin (Student) -->
+        <div class="page" id="pageCheckin">
+            <div class="card">
+                <div class="card-title">
+                    <div class="card-icon">✅</div>
+                    課程簽到
+                </div>
+                <div class="course-box">
+                    <div class="course-name" id="checkinCourse">載入中...</div>
+                    <span class="status-badge" id="checkinStatus">
+                        <span class="status-dot"></span>
+                        開放簽到中
+                    </span>
+                </div>
+                <form id="formCheckin">
+                    <div class="form-group">
+                        <label class="form-label">學號</label>
+                        <input type="text" class="form-input" id="inputStudentId" placeholder="請輸入學號" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">出席狀態</label>
+                        <select class="form-input" id="inputAttendance">
+                            <option value="簽到">簽到</option>
+                            <option value="請假">請假</option>
+                            <option value="遲到">遲到</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">📝 確認簽到</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Page: Success -->
+        <div class="page" id="pageSuccess">
+            <div class="card">
+                <div class="success-box">
+                    <div class="success-icon">✓</div>
+                    <div class="success-title">簽到成功！</div>
+                    <div class="success-msg" id="successMsg">已完成簽到</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Page: Error -->
+        <div class="page" id="pageError">
+            <div class="card">
+                <div class="error-box">
+                    <div class="error-icon">⚠️</div>
+                    <div class="error-title" id="errorTitle">連結已失效</div>
+                    <div class="error-msg" id="errorMsg">此簽到連結已過期或已被關閉</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast">
+        <span id="toastIcon">✓</span>
+        <span id="toastMsg"></span>
+    </div>
+
+    <!-- Loading -->
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- QR Code Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <script>
+    // ============================================
+    // ⚠️ 請將此處改為您的 Google Apps Script Web App URL
+    // ============================================
+    const API_URL = '在此貼上您的Apps_Script網址';
+
+    // ============================================
+    // 狀態
+    // ============================================
+    let currentSession = null;
+    let countdownTimer = null;
+
+    // ============================================
+    // 初始化
+    // ============================================
+    document.addEventListener('DOMContentLoaded', () => {
+        const params = new URLSearchParams(window.location.search);
+        const sessionId = params.get('s');
+        const isAdmin = params.get('admin') === 'true';
+
+        if (sessionId) {
+            initStudentMode(sessionId);
+        } else {
+            initAdminMode();
+        }
+    });
+
+    // ============================================
+    // 管理員模式
+    // ============================================
+    function initAdminMode() {
+        document.getElementById('tabs').style.display = 'flex';
+        showPage('pageCreate');
+
+        // Tab 切換
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                if (tab.dataset.tab === 'create') {
+                    showPage('pageCreate');
+                } else {
+                    showPage('pageManage');
+                    loadSessions();
+                }
+            });
+        });
+
+        // 建立表單
+        document.getElementById('formCreate').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await createSession();
+        });
+    }
+
+    // ============================================
+    // 學員模式
+    // ============================================
+    async function initStudentMode(sessionId) {
+        document.getElementById('tabs').style.display = 'none';
+        showPage('pageCheckin');
+        showLoading(true);
+
+        try {
+            const res = await fetch(`${API_URL}?action=verify&sessionId=${sessionId}`);
+            const data = await res.json();
+
+            if (data.success && data.valid) {
+                document.getElementById('checkinCourse').textContent = data.courseName;
+                currentSession = { id: sessionId, courseName: data.courseName };
+
+                document.getElementById('formCheckin').addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    await submitCheckin(sessionId);
+                });
+            } else {
+                showPage('pageError');
+                document.getElementById('errorMsg').textContent = data.message || '連結已失效';
+            }
+        } catch (err) {
+            console.error(err);
+            showPage('pageError');
+            document.getElementById('errorTitle').textContent = '連線錯誤';
+            document.getElementById('errorMsg').textContent = '無法連接伺服器';
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    // ============================================
+    // 建立 Session
+    // ============================================
+    async function createSession() {
+        const courseName = document.getElementById('inputCourse').value.trim();
+        const duration = parseInt(document.getElementById('inputDuration').value) || 120;
+
+        if (!courseName) {
+            showToast('請輸入課程名稱', 'error');
+            return;
+        }
+
+        showLoading(true);
+
+        try {
+            const res = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({
+                    action: 'create',
+                    courseName: courseName,
+                    duration: duration
+                })
+            });
+
+            const data = await res.json();
+
+            if (data.success) {
+                currentSession = {
+                    id: data.sessionId,
+                    courseName: data.courseName,
+                    duration: data.duration,
+                    expiresAt: data.expiresAt,
+                    link: data.link
+                };
+
+                showGeneratedLink(currentSession);
+                showToast('連結已產生', 'success');
+            } else {
+                showToast(data.message || '建立失敗', 'error');
+            }
+        } catch (err) {
+            console.error(err);
+            showToast('連線錯誤', 'error');
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    // ============================================
+    // 顯示連結
+    // ============================================
+    function showGeneratedLink(session) {
+        document.getElementById('cardLink').style.display = 'block';
+        document.getElementById('showCourse').textContent = session.courseName;
+        document.getElementById('showLink').textContent = session.link;
+
+        // QR Code
+        const qrBox = document.getElementById('qrCode');
+        qrBox.innerHTML = '';
+        new QRCode(qrBox, {
+            text: session.link,
+            width: 160,
+            height: 160,
+            colorDark: '#0A2540',
+            colorLight: '#ffffff'
+        });
+
+        // 倒數計時
+        startCountdown(session.expiresAt);
+    }
+
+    // ============================================
+    // 倒數計時
+    // ============================================
+    function startCountdown(expiresAt) {
+        if (countdownTimer) clearInterval(countdownTimer);
+
+        const update = () => {
+            const remaining = expiresAt - Date.now();
+            const el = document.getElementById('countdown');
+
+            if (remaining <= 0) {
+                el.textContent = '已過期';
+                el.classList.add('expired');
+                clearInterval(countdownTimer);
+                return;
+            }
+
+            const h = Math.floor(remaining / 3600000);
+            const m = Math.floor((remaining % 3600000) / 60000);
+            const s = Math.floor((remaining % 60000) / 1000);
+            el.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        };
+
+        update();
+        countdownTimer = setInterval(update, 1000);
+    }
+
+    // ============================================
+    // 複製連結
+    // ============================================
+    function copyLink() {
+        const link = document.getElementById('showLink').textContent;
+        navigator.clipboard.writeText(link).then(() => {
+            showToast('已複製連結', 'success');
+        });
+    }
+
+    // ============================================
+    // 關閉連結
+    // ============================================
+    async function closeCurrentSession() {
+        if (!currentSession) return;
+        await closeSession(currentSession.id);
+        document.getElementById('cardLink').style.display = 'none';
+        document.getElementById('inputCourse').value = '';
+        currentSession = null;
+        if (countdownTimer) clearInterval(countdownTimer);
+    }
+
+    async function closeSession(sessionId) {
+        showLoading(true);
+
+        try {
+            const res = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({ action: 'close', sessionId: sessionId })
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                showToast('連結已關閉', 'success');
+                loadSessions();
+            } else {
+                showToast(data.message || '關閉失敗', 'error');
+            }
+        } catch (err) {
+            showToast('連線錯誤', 'error');
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    // ============================================
+    // 載入 Sessions
+    // ============================================
+    async function loadSessions() {
+        showLoading(true);
+
+        try {
+            const res = await fetch(`${API_URL}?action=getSessions`);
+            const data = await res.json();
+
+            const list = document.getElementById('sessionList');
+
+            if (data.success && data.sessions.length > 0) {
+                list.innerHTML = data.sessions.map(s => {
+                    const mins = Math.max(0, Math.floor((s.expiresAt - Date.now()) / 60000));
+                    return `
+                        <div class="session-item">
+                            <div class="session-header">
+                                <span class="session-name">${escapeHtml(s.courseName)}</span>
+                                <span class="session-time">${mins} 分鐘</span>
+                            </div>
+                            <div class="session-btns">
+                                <button class="btn btn-secondary btn-sm" onclick="copyText('${s.link}')">複製</button>
+                                <button class="btn btn-danger btn-sm" onclick="closeSession('${s.id}')">關閉</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                list.innerHTML = '<p class="empty-msg">目前沒有進行中的連結</p>';
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    function copyText(text) {
+        navigator.clipboard.writeText(text).then(() => showToast('已複製', 'success'));
+    }
+
+    // ============================================
+    // 簽到
+    // ============================================
+    async function submitCheckin(sessionId) {
+        const studentId = document.getElementById('inputStudentId').value.trim();
+        const attendance = document.getElementById('inputAttendance').value;
+
+        if (!studentId) {
+            showToast('請輸入學號', 'error');
+            return;
+        }
+
+        showLoading(true);
+
+        try {
+            const res = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({
+                    action: 'checkin',
+                    sessionId: sessionId,
+                    studentId: studentId,
+                    attendance: attendance
+                })
+            });
+
+            const data = await res.json();
+
+            if (data.success) {
+                showPage('pageSuccess');
+                document.getElementById('successMsg').textContent = 
+                    `學號 ${studentId}（${attendance}）`;
+            } else {
+                if (data.expired) {
+                    showPage('pageError');
+                    document.getElementById('errorMsg').textContent = data.message || '連結已失效';
+                } else {
+                    showToast(data.message || '簽到失敗', 'error');
+                }
+            }
+        } catch (err) {
+            showToast('連線錯誤', 'error');
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    // ============================================
+    // UI 工具
+    // ============================================
+    function showPage(id) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+    }
+
+    function showLoading(show) {
+        document.getElementById('loading').classList.toggle('show', show);
+    }
+
+    function showToast(msg, type = 'success') {
+        const toast = document.getElementById('toast');
+        document.getElementById('toastIcon').textContent = type === 'success' ? '✓' : '✕';
+        document.getElementById('toastMsg').textContent = msg;
+        toast.className = `toast ${type} show`;
+        setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    </script>
+</body>
+</html>
