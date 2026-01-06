@@ -553,12 +553,11 @@
                         <input type="text" class="form-input" id="inputStudentId" placeholder="請輸入學號" required>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">出席狀態</label>
-                        <select class="form-input" id="inputAttendance">
-                            <option value="簽到">簽到</option>
-                            <option value="請假">請假</option>
-                            <option value="遲到">遲到</option>
-                        </select>
+                        <label class="checkbox-label">
+                             <input type="checkbox" id="inputAttendance" required>
+                            <span class="checkmark"></span>
+                            <span>我確認出席此課程</span>
+                        </label>
                     </div>
                     <button type="submit" class="btn btn-primary">📝 確認簽到</button>
                 </form>
