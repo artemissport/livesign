@@ -720,7 +720,7 @@
     });
 
     // ============================================
-    // 密碼驗證
+    // 密碼驗證（當天有效，隔天需重新輸入）
     // ============================================
     function checkAdminPassword() {
         const savedAuth = localStorage.getItem('admin_auth');
@@ -733,16 +733,25 @@
             return;
         }
 
-        const password = prompt('請輸入教練密碼：');
+        // 顯示密碼輸入頁面
+        showPage('pagePassword');
         
-        if (password === ADMIN_PASSWORD) {
-            localStorage.setItem('admin_auth', 'true');
-            localStorage.setItem('admin_auth_date', today);
-            initAdminMode();
-        } else if (password !== null) {
-            alert('密碼錯誤！');
-            checkAdminPassword();
-        }
+        // 密碼表單提交
+        document.getElementById('formPassword').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const password = document.getElementById('inputPassword').value;
+            
+            if (password === ADMIN_PASSWORD) {
+                localStorage.setItem('admin_auth', 'true');
+                localStorage.setItem('admin_auth_date', today);
+                document.getElementById('passwordError').style.display = 'none';
+                initAdminMode();
+            } else {
+                document.getElementById('passwordError').style.display = 'block';
+                document.getElementById('inputPassword').value = '';
+                document.getElementById('inputPassword').focus();
+            }
+        });
     }
     // ============================================
     // 管理員模式
