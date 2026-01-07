@@ -700,9 +700,12 @@
     // 密碼驗證
     // ============================================
     function checkAdminPassword() {
-        const savedAuth = sessionStorage.getItem('admin_auth');
+        const savedAuth = localStorage.getItem('admin_auth');
+        const savedDate = localStorage.getItem('admin_auth_date');
+        const today = new Date().toDateString();
         
-        if (savedAuth === 'true') {
+        // 檢查是否同一天且已驗證
+        if (savedAuth === 'true' && savedDate === today) {
             initAdminMode();
             return;
         }
@@ -710,14 +713,14 @@
         const password = prompt('請輸入教練密碼：');
         
         if (password === ADMIN_PASSWORD) {
-            sessionStorage.setItem('admin_auth', 'true');
+            localStorage.setItem('admin_auth', 'true');
+            localStorage.setItem('admin_auth_date', today);
             initAdminMode();
         } else if (password !== null) {
             alert('密碼錯誤！');
             checkAdminPassword();
         }
     }
-
     // ============================================
     // 管理員模式
     // ============================================
