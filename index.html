@@ -120,7 +120,9 @@
         .form-group { margin-bottom: 14px; }
 
         .form-label {
-            display: block;
+            display: flex;
+            align-items: center;
+            gap: 10px;
             font-size: 16px;
             font-weight: 500;
             color: var(--text-primary);
@@ -608,7 +610,10 @@
                 </div>
                 <form id="formCheckin">
                     <div class="form-group">
-                        <label class="form-label">✏️ 學號</label>
+                        <label class="form-label">
+                            <div class="card-icon">✏️</div>
+                            學號
+                        </label>
                         <span class="form-hint">請填寫學號前七碼，例如 2201001-3A → 請填寫「2201001」</span>
                         <input type="text" class="form-input" id="inputStudentId" placeholder="請輸入7位數學號" required maxlength="7" pattern="[0-9]{7}" inputmode="numeric">
                     </div>
