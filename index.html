@@ -650,6 +650,29 @@
                 </div>
             </div>
         </div>
+
+        <!-- Page: Password (Admin Login) -->
+        <div class="page" id="pagePassword">
+            <div class="card">
+                <div class="card-title">
+                    <div class="card-icon">🔐</div>
+                    教練登入
+                </div>
+                <form id="formPassword">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <div class="card-icon">🔑</div>
+                            請輸入密碼
+                        </label>
+                        <input type="password" class="form-input" id="inputPassword" placeholder="請輸入教練密碼" required>
+                    </div>
+                    <div id="passwordError" style="color: var(--danger); font-size: 14px; margin-bottom: 14px; display: none;">
+                        密碼錯誤，請重新輸入
+                    </div>
+                    <button type="submit" class="btn btn-primary">🔓 登入</button>
+                </form>
+            </div>
+        </div>
     </div>
 
     <!-- Toast -->
