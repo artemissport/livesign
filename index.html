@@ -726,11 +726,15 @@
     // ⚠️ 請修改以下設定
     // ============================================
     const API_URL = 'https://script.google.com/macros/s/AKfycbyBWuB7x067S-6fTT7lWGmsIdT5wcW_k2WYJYPNwgIZBMVxR3O2Jx5bF79Mm3_EILRo/exec';
-    // 後端 GAS 偶爾會恍神 10~15 秒，等待上限要涵蓋這個範圍，
-    // 否則會發生「其實快好了卻被自己掛斷」的假逾時。
-    const FETCH_TIMEOUT_MS = 25000;
-    // 只有「真的連不上」才自動重試一次；逾時不重試，避免多個請求疊在後端互搶。
-    const NETWORK_RETRY_DELAY_MS = 1200;
+    // 2026-08-06 實測 GAS 回應呈現兩極分布，中間是空的：
+    //   成功 → 0.95 / 0.99 / 1.64 / 2.18 / 2.29 / 4.76 秒
+    //   失敗 → 16.27 / 20.18 / 23.60 / 37.25 秒（最後回錯誤網頁）
+    // 換言之超過 5 秒就註定失敗，再等下去沒有意義。
+    // 同樣的現象在一支「全新的空白 GAS」上也重現，所以這是 GAS 服務本身的特性，
+    // 不是這個專案的程式碼造成的 —— 前端能做的是早點放棄、換一次線路重來。
+    const FETCH_TIMEOUT_MS = 10000;
+    const FETCH_MAX_ATTEMPTS = 4;
+    const FETCH_RETRY_DELAYS = [2000, 4000, 6000];
     
     // 教練端密碼（請改成你自己的密碼）
     const ADMIN_PASSWORD = '007058';
@@ -832,7 +836,11 @@
         hideRetryButton();
 
         try {
-            const res = await fetchWithRetry(`${API_URL}?action=verify&sessionId=${encodeURIComponent(sessionId)}`);
+            const res = await fetchWithRetry(
+                `${API_URL}?action=verify&sessionId=${encodeURIComponent(sessionId)}`,
+                {},
+                retryProgressHint
+            );
             const data = await res.json();
 
             if (data.success && data.valid) {
@@ -871,6 +879,9 @@
         showLoading(true, '正在產生連結');
 
         try {
+            // 註：建立連結若「其實成功了但回話弄丟」，重試會多產生一個連結。
+            // 多出來的會照 duration 自動過期，也能在管理分頁手動關閉，
+            // 比起教練在上課前建不出連結，這個代價可以接受。
             const res = await fetchWithRetry(API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain' },
@@ -879,7 +890,7 @@
                     courseName: courseName,
                     duration: duration
                 })
-            });
+            }, retryProgressHint);
 
             const data = await res.json();
 
@@ -985,7 +996,7 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain' },
                 body: JSON.stringify({ action: 'close', sessionId: sessionId })
-            });
+            }, retryProgressHint);
 
             const data = await res.json();
             if (data.success) {
@@ -1009,7 +1020,7 @@
         showLoading(true, '載入連結清單');
 
         try {
-            const res = await fetchWithRetry(`${API_URL}?action=getSessions`);
+            const res = await fetchWithRetry(`${API_URL}?action=getSessions`, {}, retryProgressHint);
             const data = await res.json();
 
             const list = document.getElementById('sessionList');
@@ -1080,7 +1091,7 @@
                     studentId: studentId,
                     attendance: '簽到'
                 })
-            });
+            }, retryProgressHint);
 
             const data = await res.json();
 
@@ -1098,10 +1109,15 @@
             }
         } catch (err) {
             console.error(err);
-            showToast(describeFetchError(
-                err,
-                '伺服器回應太慢，無法確認是否簽到成功，請再試一次或告知教練'
-            ), 'error');
+            // 已經自動試過 FETCH_MAX_ATTEMPTS 次還是沒收到回覆。
+            // 實務上這種情況資料多半已經寫進試算表了，只是回話弄丟，
+            // 所以訊息不能寫「簽到失敗」，那會讓學員一直重送。
+            showPage('pageError');
+            document.getElementById('errorTitle').textContent = '無法確認簽到結果';
+            document.getElementById('errorMsg').textContent =
+                '系統已自動嘗試多次仍未收到回覆。你的簽到很可能已經送出成功，' +
+                '可以按下方按鈕再確認一次（重複按不會重複記錄），或直接告知教練協助查詢。';
+            showRetryButton(() => submitCheckin(sessionId));
         } finally {
             checkinInFlight = false;
             showLoading(false);
@@ -1134,6 +1150,21 @@
         }
 
         document.getElementById('loading').classList.toggle('show', show);
+    }
+
+    function setLoadingHint(text) {
+        const hint = document.getElementById('loadingHint');
+        if (hint) hint.textContent = text;
+    }
+
+    // 傳給 fetchWithRetry 的進度回報：讓學員看得到系統還在重試，而不是以為當掉了
+    function retryProgressHint(attempt, total) {
+        if (attempt <= 1) return;
+        if (loadingHintTimer) {
+            clearTimeout(loadingHintTimer);
+            loadingHintTimer = null;
+        }
+        setLoadingHint(`連線不穩，重新嘗試中（第 ${attempt} 次 / 共 ${total} 次）`);
     }
 
     function showToast(msg, type = 'success') {
@@ -1198,23 +1229,27 @@
         }
     }
 
-    // 逾時 → 直接放棄，交給畫面上的「重新嘗試」讓使用者決定。
-    // 因為逾時的當下後端很可能還在跑，這時自動重送只會讓後端更塞。
-    // 連不上 / 伺服器錯誤 → 自動重試一次就好。
-    async function fetchWithRetry(url, options = {}) {
+    // 不管是逾時、連不上、還是後端回了錯誤網頁，都當成「這一次沒成功」直接重來。
+    // GAS 失敗時回的是 HTTP 404 加一頁 HTML，不是慢，多等也不會變成功。
+    // 間隔刻意拉開（2/4/6 秒），避免連珠炮讓後端更塞。
+    // onAttempt 讓畫面能顯示「重新連線中（第 N 次）」，學員才知道系統還在努力。
+    async function fetchWithRetry(url, options = {}, onAttempt) {
         let lastError;
 
-        for (let attempt = 0; attempt < 2; attempt++) {
+        for (let attempt = 0; attempt < FETCH_MAX_ATTEMPTS; attempt++) {
+            if (onAttempt) onAttempt(attempt + 1, FETCH_MAX_ATTEMPTS);
+
             try {
                 const res = await fetchWithTimeout(url, options);
                 if (res.ok) return res;
                 lastError = new Error(`HTTP ${res.status}`);
             } catch (err) {
-                if (err.isTimeout) throw err;
                 lastError = err;
             }
 
-            if (attempt === 0) await delay(NETWORK_RETRY_DELAY_MS);
+            if (attempt < FETCH_MAX_ATTEMPTS - 1) {
+                await delay(FETCH_RETRY_DELAYS[attempt]);
+            }
         }
 
         throw lastError;
