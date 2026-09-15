@@ -1077,7 +1077,9 @@
         if (checkinInFlight) return;
         checkinInFlight = true;
 
-        showLoading(true, '簽到送出中');
+        // 立即告知學員請求已送出，背景繼續等待 GAS 的最終回覆。
+        showLoading(true, '簽到資料已送出，正在確認');
+        document.getElementById('loadingHint').textContent = '請勿重複操作或關閉此頁面';
 
         try {
             const res = await fetchWriteOnce(API_URL, {
