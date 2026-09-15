@@ -729,10 +729,10 @@
     // 2026-08-06 實測 GAS 回應呈現兩極分布，中間是空的：
     //   成功 → 0.95 / 0.99 / 1.64 / 2.18 / 2.29 / 4.76 秒
     //   失敗 → 16.27 / 20.18 / 23.60 / 37.25 秒（最後回錯誤網頁）
-    // 換言之超過 5 秒就註定失敗，再等下去沒有意義。
-    // 同樣的現象在一支「全新的空白 GAS」上也重現，所以這是 GAS 服務本身的特性，
-    // 不是這個專案的程式碼造成的 —— 前端能做的是早點放棄、換一次線路重來。
-    const FETCH_TIMEOUT_MS = 10000;
+    // 查詢型請求可安全重試；建立、關閉與簽到等寫入型請求只送一次，
+    // 避免 GAS 已完成寫入、但成功回應未送達時，前端重送造成重複資料。
+    const READ_TIMEOUT_MS = 10000;
+    const WRITE_TIMEOUT_MS = 30000;
     const FETCH_MAX_ATTEMPTS = 4;
     const FETCH_RETRY_DELAYS = [2000, 4000, 6000];
     
@@ -879,10 +879,8 @@
         showLoading(true, '正在產生連結');
 
         try {
-            // 註：建立連結若「其實成功了但回話弄丟」，重試會多產生一個連結。
-            // 多出來的會照 duration 自動過期，也能在管理分頁手動關閉，
-            // 比起教練在上課前建不出連結，這個代價可以接受。
-            const res = await fetchWithRetry(API_URL, {
+            // 建立課程只送一次，避免成功回應遺失時重複建立多個連結。
+            const res = await fetchWriteOnce(API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain' },
                 body: JSON.stringify({
@@ -890,7 +888,7 @@
                     courseName: courseName,
                     duration: duration
                 })
-            }, retryProgressHint);
+            });
 
             const data = await res.json();
 
@@ -992,11 +990,11 @@
         showLoading(true, '正在關閉連結');
 
         try {
-            const res = await fetchWithRetry(API_URL, {
+            const res = await fetchWriteOnce(API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain' },
                 body: JSON.stringify({ action: 'close', sessionId: sessionId })
-            }, retryProgressHint);
+            });
 
             const data = await res.json();
             if (data.success) {
@@ -1082,7 +1080,7 @@
         showLoading(true, '簽到送出中');
 
         try {
-            const res = await fetchWithRetry(API_URL, {
+            const res = await fetchWriteOnce(API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain' },
                 body: JSON.stringify({
@@ -1091,7 +1089,7 @@
                     studentId: studentId,
                     attendance: '簽到'
                 })
-            }, retryProgressHint);
+            });
 
             const data = await res.json();
 
@@ -1109,15 +1107,13 @@
             }
         } catch (err) {
             console.error(err);
-            // 已經自動試過 FETCH_MAX_ATTEMPTS 次還是沒收到回覆。
-            // 實務上這種情況資料多半已經寫進試算表了，只是回話弄丟，
-            // 所以訊息不能寫「簽到失敗」，那會讓學員一直重送。
+            // 寫入請求只送一次。沒收到回覆不代表沒有寫入，請勿再次自動提交。
             showPage('pageError');
-            document.getElementById('errorTitle').textContent = '無法確認簽到結果';
+            hideRetryButton();
+            document.getElementById('errorTitle').textContent = '簽到結果待確認';
             document.getElementById('errorMsg').textContent =
-                '系統已自動嘗試多次仍未收到回覆。你的簽到很可能已經送出成功，' +
-                '可以按下方按鈕再確認一次（重複按不會重複記錄），或直接告知教練協助查詢。';
-            showRetryButton(() => submitCheckin(sessionId));
+                '簽到資料已送出，但系統暫時沒有收到確認回覆。請不要重複提交，' +
+                '並告知教練協助確認 Google Sheet。';
         } finally {
             checkinInFlight = false;
             showLoading(false);
@@ -1203,13 +1199,13 @@
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    async function fetchWithTimeout(url, options = {}) {
+    async function fetchWithTimeout(url, options = {}, timeoutMs = READ_TIMEOUT_MS) {
         const controller = new AbortController();
         let timedOut = false;
         const timeout = setTimeout(() => {
             timedOut = true;
             controller.abort();
-        }, FETCH_TIMEOUT_MS);
+        }, timeoutMs);
 
         try {
             return await fetch(url, {
@@ -1227,6 +1223,11 @@
         } finally {
             clearTimeout(timeout);
         }
+    }
+
+    // 寫入型請求只送一次。延長等待時間，但絕不自動重送，避免重複建立或重複簽到。
+    async function fetchWriteOnce(url, options = {}) {
+        return await fetchWithTimeout(url, options, WRITE_TIMEOUT_MS);
     }
 
     // 不管是逾時、連不上、還是後端回了錯誤網頁，都當成「這一次沒成功」直接重來。
