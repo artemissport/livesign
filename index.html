@@ -733,9 +733,6 @@
     // 避免 GAS 已完成寫入、但成功回應未送達時，前端重送造成重複資料。
     const READ_TIMEOUT_MS = 10000;
     const WRITE_TIMEOUT_MS = 30000;
-    const CHECKIN_CONFIRM_DELAY_MS = 5000;
-    const CHECKIN_CONFIRM_TIMEOUT_MS = 15000;
-    const CHECKIN_CONFIRM_ATTEMPTS = 2;
     const FETCH_MAX_ATTEMPTS = 4;
     const FETCH_RETRY_DELAYS = [2000, 4000, 6000];
     
@@ -1062,51 +1059,6 @@
     // ============================================
     // 簽到
     // ============================================
-    function generateRequestId() {
-        if (window.crypto && typeof window.crypto.randomUUID === 'function') {
-            return window.crypto.randomUUID();
-        }
-
-        return 'checkin-' + Date.now() + '-' + Math.random().toString(36).slice(2, 12);
-    }
-
-    async function confirmCheckinInBackground(requestId, sessionId, studentId) {
-        await delay(CHECKIN_CONFIRM_DELAY_MS);
-
-        let lastError = null;
-        for (let attempt = 0; attempt < CHECKIN_CONFIRM_ATTEMPTS; attempt++) {
-            try {
-                const query = new URLSearchParams({
-                    action: 'checkCheckin',
-                    requestId: requestId,
-                    sessionId: sessionId,
-                    studentId: studentId
-                });
-                const res = await fetchWithTimeout(
-                    `${API_URL}?${query.toString()}`,
-                    {},
-                    CHECKIN_CONFIRM_TIMEOUT_MS
-                );
-
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.success && data.confirmed) {
-                        return { type: 'confirmed', data: data };
-                    }
-                }
-            } catch (err) {
-                lastError = err;
-                console.warn('查詢簽到結果失敗：', err);
-            }
-
-            if (attempt < CHECKIN_CONFIRM_ATTEMPTS - 1) {
-                await delay(2000);
-            }
-        }
-
-        return { type: 'confirmTimeout', error: lastError };
-    }
-
     async function submitCheckin(sessionId) {
         const studentId = document.getElementById('inputStudentId').value.trim();
         const isChecked = document.getElementById('inputAttendance').checked;
@@ -1125,72 +1077,51 @@
         if (checkinInFlight) return;
         checkinInFlight = true;
 
-        const requestId = generateRequestId();
-
         // 立即告知學員請求已送出，背景繼續等待 GAS 的最終回覆。
         showLoading(true, '簽到資料已送出，正在確認');
         document.getElementById('loadingHint').textContent = '請勿重複操作或關閉此頁面';
 
-        const postOutcome = fetchWriteOnce(API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain' },
-            body: JSON.stringify({
-                action: 'checkin',
-                requestId: requestId,
-                sessionId: sessionId,
-                studentId: studentId,
-                attendance: '簽到'
-            })
-        }).then(async res => {
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            return { type: 'post', data: await res.json() };
-        }).catch(error => ({ type: 'postError', error: error }));
-
-        const confirmOutcome = confirmCheckinInBackground(requestId, sessionId, studentId);
-
         try {
-            let outcome = await Promise.race([postOutcome, confirmOutcome]);
+            const res = await fetchWriteOnce(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({
+                    action: 'checkin',
+                    sessionId: sessionId,
+                    studentId: studentId,
+                    attendance: '簽到'
+                })
+            });
 
-            // POST 沒收到回覆時，繼續等待背景查詢；背景尚未確認時，則等原 POST。
-            if (outcome.type === 'postError') {
-                outcome = await confirmOutcome;
-            } else if (outcome.type === 'confirmTimeout') {
-                outcome = await postOutcome;
-            }
+            const data = await res.json();
 
-            if (outcome.type === 'confirmed' ||
-                (outcome.type === 'post' && outcome.data.success)) {
+            if (data.success) {
                 showPage('pageSuccess');
                 document.getElementById('successMsg').textContent =
                     `學號 ${studentId} 已完成簽到`;
-                return;
+            } else {
+                if (data.expired) {
+                    showPage('pageError');
+                    document.getElementById('errorMsg').textContent = data.message || '連結已失效';
+                } else {
+                    showToast(data.message || '簽到失敗', 'error');
+                }
             }
-
-            if (outcome.type === 'post' && outcome.data.expired) {
-                showPage('pageError');
-                hideRetryButton();
-                document.getElementById('errorTitle').textContent = '連結已失效';
-                document.getElementById('errorMsg').textContent =
-                    outcome.data.message || '連結已失效';
-                return;
-            }
-
-            if (outcome.type === 'post') {
-                showToast(outcome.data.message || '簽到失敗', 'error');
-                return;
-            }
-
-            // POST 與查詢都沒有取得明確結果；不自動重送簽到。
+        } catch (err) {
+            console.error(err);
+            // 寫入請求只送一次。沒收到回覆不代表沒有寫入，請勿再次自動提交。
             showPage('pageError');
             hideRetryButton();
             document.getElementById('errorTitle').textContent = '簽到結果待確認';
             document.getElementById('errorMsg').textContent =
-                '系統暫時無法確認簽到結果，請不要重複提交，並告知教練協助確認 Google Sheet。';
+                '簽到資料已送出，但系統暫時沒有收到確認回覆。請不要重複提交，' +
+                '並告知教練協助確認 Google Sheet。';
         } finally {
             checkinInFlight = false;
             showLoading(false);
         }
     }
+
     // ============================================
     // UI 工具
     // ============================================
